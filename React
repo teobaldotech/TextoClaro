@@ -17,20 +17,70 @@ function TextAnalyzer() {
     setCorrections(data.matches);
   };
 
+  // Função para aplicar correção escolhida
+  const applyCorrection = (index) => {
+    const c = corrections[index];
+    if (!c || c.replacements.length === 0) return;
+
+    let chosen = null;
+
+    // Pergunta ao usuário qual sugestão aplicar
+    for (let r of c.replacements) {
+      if (window.confirm(`Deseja substituir por: "${r.value}" ?`)) {
+        chosen = r.value;
+        break;
+      }
+    }
+
+    if (!chosen) return;
+
+    const start = c.offset;
+    const end = c.offset + c.length;
+
+    // Substitui no texto original
+    const newText = text.substring(0, start) + chosen + text.substring(end);
+    setText(newText);
+
+    // Remove a correção aplicada da lista
+    const newCorrections = corrections.filter((_, i) => i !== index);
+    setCorrections(newCorrections);
+  };
+
   // Função para destacar erros no texto
   const highlightText = () => {
-    let highlighted = text;
-    corrections.forEach((c) => {
-      if (c.replacements.length > 0) {
-        const wrong = text.substring(c.offset, c.offset + c.length);
-        const suggestion = c.replacements[0].value;
-        highlighted = highlighted.replace(
-          wrong,
-          `<span style="background-color: #ffcccc;" title="${c.message} → ${suggestion}">${wrong}</span>`
-        );
-      }
+    if (corrections.length === 0) return text;
+
+    let result = "";
+    let lastIndex = 0;
+
+    const sortedCorrections = [...corrections].sort((a, b) => a.offset - b.offset);
+
+    sortedCorrections.forEach((c, i) => {
+      const start = c.offset;
+      const end = c.offset + c.length;
+      const wrong = text.substring(start, end);
+      const suggestionList = c.replacements.map(r => r.value).join(", ");
+
+      result += text.substring(lastIndex, start);
+
+      result += `<span 
+        style="background-color: #ffcccc; cursor: pointer;" 
+        title="${c.message} → ${suggestionList}" 
+        data-index="${i}"
+      >${wrong}</span>`;
+
+      lastIndex = end;
     });
-    return highlighted;
+
+    result += text.substring(lastIndex);
+    return result;
+  };
+
+  // Captura cliques nos spans
+  const handleClick = (e) => {
+    if (e.target.dataset.index) {
+      applyCorrection(parseInt(e.target.dataset.index));
+    }
   };
 
   return (
@@ -58,6 +108,7 @@ function TextAnalyzer() {
           minHeight: "100px"
         }}
         dangerouslySetInnerHTML={{ __html: highlightText() }}
+        onClick={handleClick}
       />
 
       <h3>Correções sugeridas:</h3>
@@ -76,4 +127,3 @@ function TextAnalyzer() {
   );
 }
 
-export default TextAnalyzer;
